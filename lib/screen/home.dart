@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
+import 'package:todolist/data/database.dart';
+import 'package:todolist/util/dialog_box.dart';
 import 'package:todolist/util/todo_tile.dart';
-
-//list of todo task
-List toDoList = [
-  ["Make tutorial", false], // "text" == 0, bool == 1
-  ["Do Exercise", false],
-];
 
 class Homepage extends StatefulWidget {
   const Homepage({super.key});
@@ -14,14 +11,66 @@ class Homepage extends StatefulWidget {
   State<Homepage> createState() => _HomepageState();
 }
 
+// reference the hive box
+final _myBox = Hive.box('mybox');
+
+ToDoDatabase db = ToDoDatabase();
+
+// text controller
+final _controller = TextEditingController();
+
 class _HomepageState extends State<Homepage> {
   // check box was tapped
   void checkBoxChanged(bool? value, int index) {
     //set state need to live in state
     setState(() {
-      toDoList[index][1] =
-          !toDoList[index][1]; //index is position of toDolist ,1 = bool
+      db.toDoList[index][1] =
+          !db.toDoList[index][1]; //index is position of toDolist ,1 = bool
     });
+    db.updateDataBase();
+  }
+
+  //save new task
+  void saveNewtask() {
+    setState(() {
+      db.toDoList.add([_controller.text, false]);
+    });
+    Navigator.of(context).pop();
+    db.updateDataBase();
+  }
+
+  //create new task
+  void createNewTask() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return DialogBox(
+          controller: _controller,
+          onSave: saveNewtask,
+          onCancel: () => Navigator.of(context).pop(),
+        );
+      },
+    );
+  }
+
+  // delete Task
+  void deleteTask(int index) {
+    setState(() {
+      db.toDoList.removeAt(index);
+    });
+    db.updateDataBase();
+  }
+
+  @override
+  void initState() {
+    // if this is the 1st time ever use default data
+    if (_myBox.get("TODOLIST") == null) {
+      db.crateInitialData();
+    } else {
+      //there already exists data
+      db.localData();
+    }
+    super.initState();
   }
 
   @override
@@ -33,14 +82,19 @@ class _HomepageState extends State<Homepage> {
         centerTitle: true,
         backgroundColor: Colors.green,
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: createNewTask,
+        child: Icon(Icons.add),
+      ),
       body: ListView.builder(
         //listview เลื่อนได้
-        itemCount: toDoList.length,
+        itemCount: db.toDoList.length,
         itemBuilder: (context, index) {
           return TodoTile(
-            taskName: toDoList[index][0],
-            taskCompleted: toDoList[index][1],
+            taskName: db.toDoList[index][0],
+            taskCompleted: db.toDoList[index][1],
             onChanged: (value) => checkBoxChanged(value, index),
+            deleteFuction: (context) => deleteTask(index),
           );
         },
       ),
